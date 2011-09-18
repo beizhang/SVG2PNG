@@ -1,0 +1,262 @@
+<!DOCTYPE HTML>
+<html>
+<head>
+<title>SVG 2 PNG</title>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
+<style>
+  * {
+    margin: 0px;
+    padding: 0px;
+  }
+
+  body {
+    position: relative;
+    background: #EEE;
+    text-align: center;
+    font-family: "Lucida Grande" Helvetica;
+    line-height: 25px;
+  }
+
+  h1, h2 {
+    text-shadow: 1px 1px 0px #ccc;
+  }
+
+  h1 {
+    font-size: 30px;
+  }
+
+  h2 {
+    font-size: 17px;
+  }
+
+  .content {
+    width: 800px;
+    margin: 0px auto;
+    background: white;
+    border-left: 1px solid #CCC;
+    border-right: 1px solid #CCC;
+    z-index: 2;
+    text-align: left;
+    padding: 15px;
+    padding-top: 0px;
+  }
+
+  .dark {
+    background: #F8F8F8;
+    margin: 0px -15px;
+    padding: 5px 15px;
+    border-top: 1px dashed #CCC;
+    border-bottom: 1px dashed #CCC;
+  }
+
+  .header {
+    border-bottom: 1px solid #CCC;
+    margin-bottom: 5px;
+    padding: 10px;
+    line-height: 31px;
+  }
+
+  textarea {
+    border: 1px solid #CCC;
+    font-family: Consolas "Courier New";
+    font-size: 15px;
+  }
+
+  canvas, .img, #result-img {
+    border: 1px solid #000;
+    background: left top repeat url('data:image/gif;base64,R0lGODlhEAAQAJEAANbW1tXV1f///wAAACH5BAAAAAAALAAAAAAQABAAAAIyDBCZws1nDHIuJkgb2gdkpiDRJ3TX8ilWQEonS6YqlkJcC51ktxn4C8u8Oi1gkDJEFAAAOw==');
+    margin-right: 5px;
+    margin-bottom: 5px;
+    float: left;
+  }
+
+  .img {
+    position: relative;
+  }
+
+  .fore {
+    position: absolute;
+    left: 0px;
+    top: 0px;
+    right: 0px;
+    bottom: 0px;
+  }
+
+  .author {
+    margin-top: 15px;
+    text-align: right;
+    font: 12px Arial;
+    color: #111;
+    text-shadow: 1px 1px 0px #ccc;
+    line-height: 20px;
+  }
+
+  .author * {
+    color: #111;
+  }
+
+</style>
+<script type="text/javascript" src="jq.js"></script>
+<script type="text/javascript">
+  $(document).ready(function() {
+    var ta = $('textarea'),
+        xml = $('xml'),
+        img = $('img'),
+        canvas = $('canvas')[0],
+        head = '<?xml version="1.0" standalone="no"?>\n<svg xmlns="http://www.w3.org/2000/svg" baseProfile="full"',
+        tail = '</svg>',
+        dataHead = 'data:image/svg+xml,',
+        result = $('#result'),
+        resultImg = $('#result-img'),
+        boxed  = $('.img').add($(canvas)).add(img).add(resultImg);
+
+    function drawXml() {
+
+      var ctx = canvas.getContext('2d'),
+          w = +$('#w').val(),
+          h = +$('#h').val(),
+          ox = +$('#l').val(),
+          oy = +$('#t').val(),
+          url;
+      ctx.clearRect(0, 0, w, h);
+      ctx.translate(-ox, -oy);
+      xml.html(ta.val());
+      ctx.fillStyle = "black";
+      ctx.strokeStyle = "black";
+      ctx.lineWidth = 1;
+      xml.children().each(function(i, child) {
+        ctx.save();
+        child = $(child);
+        var stroke = child.attr('stroke'), fill = child.attr('fill'),
+            strokeWidth = child.attr('stroke-width');
+        ctx.beginPath();
+        switch (child[0].tagName.toLowerCase()) {
+          case 'path' :
+          {
+            var d = child.attr('d').split(' '), i;
+            for (var i = 0; i < d.length; i++) {
+              switch (d[i].toLowerCase()) {
+                case 'm' :
+                  ctx.moveTo(d[i + 1], d[i + 2]);
+                  i += 2;
+                  break;
+                case 'l' :
+                  ctx.lineTo(d[i + 1], d[i + 2]);
+                  i += 2;
+                  break;
+                case 'z' :
+                  ctx.closePath();
+                  break;
+              }
+            }
+          }
+            break;
+          case 'ellipse' :
+          {
+            var cx = +child.attr('cx'),
+                cy = +child.attr('cy'),
+                rx = +child.attr('rx'),
+                ry = +child.attr('ry');
+            ctx.save();
+            ctx.translate(cx, cy);
+            if (rx != ry) {
+              ctx.scale(1, ry / rx);
+            }
+            ctx.arc(0, 0, rx, 0, Math.PI * 2, false);
+            ctx.restore();
+            if (!stroke) stroke = 'transparent';
+          }
+            break;
+          default:
+            stroke = fill = false;
+            break;
+        }
+
+        if (fill) ctx.fillStyle = fill;
+        ctx.fill();
+        if (stroke) ctx.strokeStyle = stroke;
+        if (strokeWidth) ctx.lineWidth = +strokeWidth;
+        ctx.stroke();
+        ctx.restore();
+      });
+      url = canvas.toDataURL('image/png');
+      result.val(url);
+      resultImg.attr('src', url)
+    }
+
+    function render() {
+      var svg = [head, ' viewBox="', [
+        +$('#l').val(), +$('#t').val(),
+        +$('#w').val(), +$('#h').val()
+      ].join(' '), '">',ta.val(),tail].join(''),
+          uri = dataHead + encodeURIComponent(svg),
+          w = $('#w').val(), h = $('#h').val();
+
+      boxed.width(w).height(h).attr('width', $('#w').val()).attr('height', $('#h').val());
+      img.attr('src', uri);
+      setTimeout(function() {
+        drawXml();
+      }, 0);
+    }
+
+    function deferedRender() {
+      if (window.deferedRenderTimeoutId) {
+        clearTimeout(window.deferedRenderTimeoutId);
+        window.deferedRenderTimeoutId = false;
+      }
+      window.deferedRenderTimeoutId = setTimeout(render, 500);
+    }
+
+    ta.keyup(deferedRender);
+    $('input').keyup(deferedRender);
+
+    render();
+  });
+</script>
+</head>
+<body>
+<div class="content">
+  <div class="header">
+    <h1>SVG to PNG Converter</h1>
+    Input stripped svg node here and get a png file!
+  </div>
+  <h2>Input svg here:</h2>
+  <textarea style="width: 100%; height: 150px">
+    <ellipse cx="17" cy="17" rx="13" ry="13" stroke="#999" stroke-width="2"></ellipse>
+    <ellipse cx="17" cy="17" rx="12" ry="12" fill="#fff" stroke="black" stroke-width="2"></ellipse>
+    <path d="M 13.5 17 L 20.5 17" stroke="#d22" stroke-width="0.7"></path>
+    <path d="M 17 13.5 L 17 20.5" stroke="#d22" stroke-width="0.7"></path>
+  </textarea>
+
+  <div class="dark">
+    <h2>View box: </h2>
+    <!--viewBox="-9 -9 33 34"-->
+    <label>Left:</label> <input type="text" id="l" value="0"/> <br/>
+    <label>Top:</label> <input type="text" id="t" value="0"/> <br/>
+    <label>Width:</label> <input type="text" id="w" value="34"/> <br/>
+    <label>Height:</label> <input type="text" id="h" value="34"/>
+  </div>
+
+  <h2>Preview:</h2>
+  <xml></xml>
+  <div class="pre">
+    <div class="img">
+      <img class="fore"/>
+    </div>
+    <canvas width="280" height="210" style="display: none;"></canvas>
+    <div class="clear" style="clear: both"></div>
+  </div>
+
+  <div class="dark">
+    <h2>Result:</h2>
+    Save the img below or copy the data URI.<br/>
+    <img id="result-img"/>
+    <textarea style="width: 100%; height: 300px" readonly="true" id="result"></textarea>
+  </div>
+  <div class="author">
+    By <a href="mailto:zhang.bei@extjs.com"> ZHANG Bei</a> Sep, 2011
+  </div>
+  <br/><br/><br/><br/><br/><br/>
+</div>
+</body>
+</html>
